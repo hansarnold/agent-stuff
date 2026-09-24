@@ -2,10 +2,13 @@
  * Desktop Notification Extension
  *
  * Sends a native desktop notification when the agent finishes and is waiting for input.
- * Uses OSC 777 escape sequence - no external dependencies.
+ * On a local Linux desktop, uses notify-send when available. Otherwise uses
+ * the original OSC 777 terminal notification (including over SSH).
+ * Requires Pi's agent_settled event, verified with Pi 0.87.1.
  *
- * Supported terminals: Ghostty, iTerm2, WezTerm, rxvt-unicode
- * Not supported: Kitty (uses OSC 99), Terminal.app, Windows Terminal, Alacritty
+ * OSC 777 fallback: Ghostty, iTerm2, WezTerm, rxvt-unicode.
+ * That fallback does not support Kitty (OSC 99), Terminal.app,
+ * Windows Terminal, or Alacritty; notify-send is independent of the terminal.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -87,9 +90,34 @@ const formatNotification = (text: string | null): { title: string; body: string 
 };
 
 export default function (pi: ExtensionAPI) {
-	pi.on("agent_end", async (event) => {
+	let pending = formatNotification(null);
+
+	pi.on("agent_start", () => {
+		pending = formatNotification(null);
+	});
+
+	pi.on("agent_end", (event) => {
 		const lastText = extractLastAssistantText(event.messages ?? []);
-		const { title, body } = formatNotification(lastText);
+		pending = formatNotification(lastText);
+	});
+
+	pi.on("agent_settled", async (_event, ctx) => {
+		if (!ctx.hasUI) return;
+		const { title, body } = pending;
+		const localLinuxDesktop = process.platform === "linux"
+			&& !process.env.SSH_CONNECTION && !process.env.SSH_TTY
+			&& Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
+
+		if (localLinuxDesktop) {
+			try {
+				const result = await pi.exec("notify-send", ["--app-name=Pi", "--", title, body], {
+					timeout: 2000,
+				});
+				if (result.code === 0) return;
+			} catch {
+				// Missing notify-send or an unavailable desktop bus: use the terminal.
+			}
+		}
 		notify(title, body);
 	});
 }

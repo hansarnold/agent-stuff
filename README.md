@@ -1,5 +1,10 @@
 # Agent Stuff
 
+> This fork's `personal` branch contains Hans's minimal Linux Pi configuration.
+> Only the resources listed in `package.json` are enabled. See
+> [PERSONAL.md](PERSONAL.md) for setup, commands, and upstream updates.
+> The upstream documentation below describes the full collection.
+
 Armin's personal [Pi Coding Agent](https://buildwithpi.ai/) package: reusable skills, extensions, prompt commands, themes, and a few supporting utilities that I use across projects.
 
 The package is published to npm as [`mitsupi`](https://www.npmjs.com/package/mitsupi). The Pi package manifest in [`package.json`](package.json) exports:
