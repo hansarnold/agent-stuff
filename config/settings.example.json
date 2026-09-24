@@ -1,0 +1,6 @@
+{
+  "packages": [
+    "git:github.com/hansarnold/agent-stuff@personal",
+    "npm:pi-web-access@0.31.0"
+  ]
+}

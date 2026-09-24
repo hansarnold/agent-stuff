@@ -24,7 +24,8 @@
       "./extensions/session-breakdown.ts"
     ],
     "skills": [
-      "./skills/commit"
+      "./skills/commit",
+      "./skills/github"
     ],
     "themes": [],
     "prompts": [
