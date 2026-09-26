@@ -1,6 +1,6 @@
 # Agent Stuff
 
-> This fork's `personal` branch contains Hans's minimal Linux Pi configuration.
+> This fork's `personal` branch contains Hans's minimal Pi configuration for macOS and Linux.
 > Only the resources listed in `package.json` are enabled. See
 > [PERSONAL.md](PERSONAL.md) for setup, commands, and upstream updates.
 > The upstream documentation below describes the full collection.

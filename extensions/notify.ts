@@ -2,13 +2,13 @@
  * Desktop Notification Extension
  *
  * Sends a native desktop notification when the agent finishes and is waiting for input.
- * On a local Linux desktop, uses notify-send when available. Otherwise uses
- * the original OSC 777 terminal notification (including over SSH).
+ * On local macOS, uses osascript; on a local Linux desktop, uses notify-send.
+ * Otherwise uses the original OSC 777 terminal notification (including over SSH).
  * Requires Pi's agent_settled event, verified with Pi 0.87.1.
  *
  * OSC 777 fallback: Ghostty, iTerm2, WezTerm, rxvt-unicode.
  * That fallback does not support Kitty (OSC 99), Terminal.app,
- * Windows Terminal, or Alacritty; notify-send is independent of the terminal.
+ * Windows Terminal, or Alacritty; native notifications are independent of the terminal.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -21,6 +21,11 @@ const notify = (title: string, body: string): void => {
 	// OSC 777 format: ESC ] 777 ; notify ; title ; body BEL
 	process.stdout.write(`\x1b]777;notify;${title};${body}\x07`);
 };
+
+// Keep message text in arguments, never interpolate it into AppleScript source.
+const macNotificationScript = `on run argv
+	display notification (item 2 of argv) with title (item 1 of argv)
+end run`;
 
 const isTextPart = (part: unknown): part is { type: "text"; text: string } =>
 	Boolean(part && typeof part === "object" && "type" in part && part.type === "text" && "text" in part);
@@ -104,18 +109,23 @@ export default function (pi: ExtensionAPI) {
 	pi.on("agent_settled", async (_event, ctx) => {
 		if (!ctx.hasUI) return;
 		const { title, body } = pending;
-		const localLinuxDesktop = process.platform === "linux"
-			&& !process.env.SSH_CONNECTION && !process.env.SSH_TTY
+		const isSsh = Boolean(process.env.SSH_CONNECTION || process.env.SSH_TTY || process.env.SSH_CLIENT);
+		const localMac = process.platform === "darwin" && !isSsh;
+		const localLinuxDesktop = process.platform === "linux" && !isSsh
 			&& Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
 
-		if (localLinuxDesktop) {
+		if (localMac || localLinuxDesktop) {
 			try {
-				const result = await pi.exec("notify-send", ["--app-name=Pi", "--", title, body], {
+				const command = localMac ? "/usr/bin/osascript" : "notify-send";
+				const args = localMac
+					? ["-e", macNotificationScript, "--", title, body]
+					: ["--app-name=Pi", "--", title, body];
+				const result = await pi.exec(command, args, {
 					timeout: 2000,
 				});
 				if (result.code === 0) return;
 			} catch {
-				// Missing notify-send or an unavailable desktop bus: use the terminal.
+				// Missing notification service or failed command: use the terminal.
 			}
 		}
 		notify(title, body);
